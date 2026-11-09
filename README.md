@@ -34,12 +34,7 @@ The copy holds data only: no primary keys, indexes or foreign keys. A `_backup_i
 
 ## Restoring
 
-Each run replaces the database, and older copies are kept by [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/): 30 days on Workers Paid, 7 days on Free. The job prints the Time Travel bookmark of every backup, and it's also the `bookmark` output.
-
-```sh
-npx wrangler d1 time-travel restore my-app-backup --timestamp 2026-01-01T00:00:00Z
-npx wrangler d1 export my-app-backup --remote --output backup.sql
-```
+Each run replaces the database, and older copies are kept by [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/), so you can restore the database to an earlier point in time. The job prints the Time Travel bookmark of every backup, and it's also the `bookmark` output.
 
 ## Inputs
 
@@ -55,7 +50,7 @@ Outputs: `database-id`, `bookmark`.
 
 ## Limits
 
-D1 limits a single value to 2 MB, a table to 100 columns and a database to 10 GB (500 MB on Free). Values over 100 KB are split across several statements, so large JSON or text columns are fine. Each run writes every row, which counts toward D1's [rows written](https://developers.cloudflare.com/d1/platform/pricing/) quota: 100k per day on Free, 50M per month included on Workers Paid.
+D1 has limits on value size, columns per table and database size, and every run writes every row, which counts toward D1's [rows written](https://developers.cloudflare.com/d1/platform/pricing/) quota. Check the current [D1 limits](https://developers.cloudflare.com/d1/platform/limits/) before backing up a large database. Large JSON or text values are split across several statements automatically.
 
 GitHub runners connect over IPv4. Supabase direct connections are IPv6-only, so use the pooler URL.
 
