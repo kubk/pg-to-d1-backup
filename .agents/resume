@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Postgres does not survive orb pause or the setup snapshot, so start it on every wake.
+set -euo pipefail
+sudo pg_ctlcluster 17 main start 2>/dev/null || pg_isready -q -h localhost
+pg_isready -h localhost -t 5

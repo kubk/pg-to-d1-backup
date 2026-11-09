@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Prepares an Amp orb: Node deps plus a local Postgres 17 (same major as CI) for the backup tests.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+step() { echo "==> $1"; SECONDS=0; }
+done_step() { echo "    done in ${SECONDS}s"; }
+
+PG_MAJOR=17
+TEST_POSTGRES_URL="postgres://postgres:postgres@localhost:5432/postgres"
+
+step "Postgres $PG_MAJOR"
+if [ ! -x "/usr/lib/postgresql/$PG_MAJOR/bin/postgres" ]; then
+  sudo install -d /usr/share/postgresql-common/pgdg
+  sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    https://www.postgresql.org/media/keys/ACCC4CF8.asc
+  echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" |
+    sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+  sudo apt-get update -qq
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "postgresql-$PG_MAJOR" >/dev/null
+fi
+# Throwaway test database: trade durability for speed.
+sudo tee "/etc/postgresql/$PG_MAJOR/main/conf.d/orb.conf" >/dev/null <<'EOF'
+fsync = off
+synchronous_commit = off
+full_page_writes = off
+EOF
+sudo pg_ctlcluster "$PG_MAJOR" main start 2>/dev/null || sudo pg_ctlcluster "$PG_MAJOR" main restart
+sudo -u postgres psql -qc "ALTER USER postgres PASSWORD 'postgres'"
+done_step
+
+step "Node dependencies"
+pnpm install --frozen-lockfile
+done_step
+
+step "Shell environment"
+marker="# pg-to-d1-backup test database"
+if ! grep -Fqx "$marker" "$HOME/.bash_profile" 2>/dev/null; then
+  printf '\n%s\nexport TEST_POSTGRES_URL=%s\n' "$marker" "$TEST_POSTGRES_URL" >>"$HOME/.bash_profile"
+fi
+done_step
