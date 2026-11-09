@@ -1,0 +1,31 @@
+name: Postgres to D1 backup
+description: Copy every table of a Postgres database into a Cloudflare D1 database, replacing the previous copy
+author: kubk
+branding:
+  icon: database
+  color: orange
+inputs:
+  postgres-url:
+    description: Postgres connection URL. A transaction pooler URL works.
+    required: true
+  d1-database:
+    description: D1 database name. Created on the first run if missing.
+    required: true
+  cloudflare-api-token:
+    description: Cloudflare API token with the Account / D1 / Edit permission
+    required: true
+  cloudflare-account-id:
+    description: Cloudflare account ID. Optional when the token can access only one account.
+    required: false
+  schema:
+    description: Postgres schema to copy
+    required: false
+    default: public
+outputs:
+  database-id:
+    description: ID of the D1 database
+  bookmark:
+    description: D1 Time Travel bookmark right after the backup
+runs:
+  using: node24
+  main: dist/index.js

@@ -1,0 +1,25 @@
+{
+  "name": "pg-to-d1-backup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Action that copies a Postgres database into Cloudflare D1",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/index.js --legal-comments=none",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/*.test.ts"
+  },
+  "dependencies": {
+    "postgres": "3.4.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}
