@@ -14,8 +14,12 @@ function fakeCloudflare(db: DatabaseSync) {
   const client = {
     getOnlyAccountId: async () => "account",
     findOrCreateDatabase: async () => ({ id: "database", created: false }),
+    // Like D1, runs every statement and returns all their rows
     query: async (_account: string, _database: string, sql: string) =>
-      db.prepare(sql).all(),
+      sql
+        .split(/;\s*/)
+        .filter(Boolean)
+        .flatMap((statement) => db.prepare(statement).all()),
     importSql: async (_account: string, _database: string, file: Buffer) => {
       imports.push(file);
       db.exec("begin");
