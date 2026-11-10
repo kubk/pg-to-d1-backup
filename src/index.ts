@@ -17,6 +17,9 @@ async function main() {
     schema: input("schema") || "public",
     accountId: input("cloudflare-account-id") || undefined,
     cloudflare: createCloudflareClient(input("cloudflare-api-token", true)),
+    excludeTables: input("exclude-tables")
+      .split(/[\s,]+/)
+      .filter(Boolean),
   });
 
   const { tables, import: imported } = result;

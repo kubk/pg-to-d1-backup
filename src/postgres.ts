@@ -9,6 +9,12 @@ import {
 
 export type TableSummary = { name: string; rowCount: number };
 
+export type DumpResult = {
+  tables: TableSummary[];
+  // Requested exclusions that matched no table in the schema
+  unknownExcluded: string[];
+};
+
 const CURSOR_ROWS = 1000;
 
 // Reads every base table of a schema inside one read-only REPEATABLE READ
@@ -19,7 +25,8 @@ export async function dumpPostgres(
   url: string,
   schema: string,
   emit: (statement: string) => void,
-): Promise<TableSummary[]> {
+  excludeTables: string[] = [],
+): Promise<DumpResult> {
   const sql = postgres(url, {
     // Transaction poolers (Supabase, Neon, PgBouncer) don't keep prepared statements
     prepare: false,
@@ -53,9 +60,15 @@ export async function dumpPostgres(
         if (columnRows.length === 0) {
           throw new Error(`No tables found in schema "${schema}"`);
         }
+        const existing = new Set(columnRows.map((row) => row.tableName));
+        const unknownExcluded = excludeTables.filter((t) => !existing.has(t));
 
+        const excluded = new Set(excludeTables);
         const tables = new Map<string, Column[]>();
         for (const row of columnRows) {
+          if (excluded.has(row.tableName)) {
+            continue;
+          }
           const columns = tables.get(row.tableName) ?? [];
           columns.push({ name: row.columnName, type: row.dataType });
           tables.set(row.tableName, columns);
@@ -81,7 +94,7 @@ export async function dumpPostgres(
           writer.flush();
           summary.push({ name: table, rowCount });
         }
-        return summary;
+        return { tables: summary, unknownExcluded };
       },
     );
   } finally {

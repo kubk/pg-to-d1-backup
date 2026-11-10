@@ -21,6 +21,9 @@ inputs:
     description: Postgres schema to copy
     required: false
     default: public
+  exclude-tables:
+    description: Tables to leave out of the copy, separated by commas or newlines
+    required: false
 outputs:
   database-id:
     description: ID of the D1 database

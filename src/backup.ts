@@ -10,6 +10,8 @@ export type BackupOptions = {
   database: string;
   accountId?: string;
   cloudflare: CloudflareClient;
+  // Postgres tables to leave out of the copy
+  excludeTables?: string[];
   log?: (message: string) => void;
 };
 
@@ -47,11 +49,21 @@ export async function backup(options: BackupOptions): Promise<BackupResult> {
       .filter((table) => table.name !== INFO_TABLE)
       .map((table) => `drop table ${quoteIdent(table.name)}`),
   ];
-  const tables = await dumpPostgres(
+  const excludeTables = options.excludeTables ?? [];
+  const { tables, unknownExcluded } = await dumpPostgres(
     options.postgresUrl,
     options.schema,
     (statement) => statements.push(statement),
+    excludeTables,
   );
+  if (unknownExcluded.length > 0) {
+    log(
+      `::warning::Excluded tables not found in schema "${options.schema}": ${unknownExcluded.join(", ")}`,
+    );
+  }
+  if (tables.length === 0) {
+    throw new Error("Every table is excluded, nothing to back up");
+  }
   const backedUpAt = new Date().toISOString();
   statements.push(
     `create table ${quoteIdent(INFO_TABLE)} (table_name text, row_count integer, backed_up_at text)`,

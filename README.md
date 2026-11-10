@@ -45,6 +45,7 @@ Each run replaces the database, and older copies are kept by [D1 Time Travel](ht
 | `cloudflare-api-token` | yes | API token with the **Account › D1 › Edit** permission. |
 | `cloudflare-account-id` | no | Needed only when the token can access more than one account. |
 | `schema` | no | Postgres schema to copy. Default `public`. |
+| `exclude-tables` | no | Tables to leave out, separated by commas or newlines, e.g. `log, notification`. Their previous copy is dropped. A name that matches no table only gives a warning. |
 
 Outputs: `database-id`, `bookmark`.
 

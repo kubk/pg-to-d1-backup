@@ -2239,7 +2239,7 @@ function splitIntoChunks(value) {
 
 // src/postgres.ts
 var CURSOR_ROWS = 1e3;
-async function dumpPostgres(url, schema, emit) {
+async function dumpPostgres(url, schema, emit, excludeTables = []) {
   const sql = src_default(url, {
     // Transaction poolers (Supabase, Neon, PgBouncer) don't keep prepared statements
     prepare: false,
@@ -2269,8 +2269,14 @@ async function dumpPostgres(url, schema, emit) {
         if (columnRows.length === 0) {
           throw new Error(`No tables found in schema "${schema}"`);
         }
+        const existing = new Set(columnRows.map((row) => row.tableName));
+        const unknownExcluded = excludeTables.filter((t) => !existing.has(t));
+        const excluded = new Set(excludeTables);
         const tables = /* @__PURE__ */ new Map();
         for (const row of columnRows) {
+          if (excluded.has(row.tableName)) {
+            continue;
+          }
           const columns = tables.get(row.tableName) ?? [];
           columns.push({ name: row.columnName, type: row.dataType });
           tables.set(row.tableName, columns);
@@ -2293,7 +2299,7 @@ async function dumpPostgres(url, schema, emit) {
           writer.flush();
           summary.push({ name: table, rowCount });
         }
-        return summary;
+        return { tables: summary, unknownExcluded };
       }
     );
   } finally {
@@ -2326,11 +2332,21 @@ async function backup(options) {
     `drop table if exists ${quoteIdent(INFO_TABLE)}`,
     ...existingTables.filter((table) => table.name !== INFO_TABLE).map((table) => `drop table ${quoteIdent(table.name)}`)
   ];
-  const tables = await dumpPostgres(
+  const excludeTables = options.excludeTables ?? [];
+  const { tables, unknownExcluded } = await dumpPostgres(
     options.postgresUrl,
     options.schema,
-    (statement) => statements.push(statement)
+    (statement) => statements.push(statement),
+    excludeTables
   );
+  if (unknownExcluded.length > 0) {
+    log(
+      `::warning::Excluded tables not found in schema "${options.schema}": ${unknownExcluded.join(", ")}`
+    );
+  }
+  if (tables.length === 0) {
+    throw new Error("Every table is excluded, nothing to back up");
+  }
   const backedUpAt = (/* @__PURE__ */ new Date()).toISOString();
   statements.push(
     `create table ${quoteIdent(INFO_TABLE)} (table_name text, row_count integer, backed_up_at text)`,
@@ -2503,7 +2519,8 @@ async function main() {
     database: input("d1-database", true),
     schema: input("schema") || "public",
     accountId: input("cloudflare-account-id") || void 0,
-    cloudflare: createCloudflareClient(input("cloudflare-api-token", true))
+    cloudflare: createCloudflareClient(input("cloudflare-api-token", true)),
+    excludeTables: input("exclude-tables").split(/[\s,]+/).filter(Boolean)
   });
   const { tables, import: imported } = result;
   console.log(

@@ -153,6 +153,45 @@ describe("backup", { skip: !url && "TEST_POSTGRES_URL is not set" }, () => {
     );
   });
 
+  it("leaves excluded tables out and drops their previous copy", async () => {
+    const d1 = new DatabaseSync(":memory:");
+    const { client } = fakeCloudflare(d1);
+    const options = {
+      postgresUrl: url!,
+      schema: "backup_test",
+      database: "backup",
+      cloudflare: client,
+    };
+    await backup({ ...options, log: () => {} });
+
+    const logs: string[] = [];
+    const result = await backup({
+      ...options,
+      excludeTables: ["order", "missing"],
+      log: (message) => logs.push(message),
+    });
+
+    assert.deepEqual(
+      result.tables.map((t) => t.name),
+      ["person"],
+    );
+    const tables = d1
+      .prepare(
+        "select name from sqlite_master where type = 'table' order by name",
+      )
+      .all()
+      .map((row) => row.name);
+    assert.deepEqual(tables, [INFO_TABLE, "person"]);
+    assert.ok(
+      logs.some((m) => m.startsWith("::warning::") && m.includes("missing")),
+    );
+
+    await assert.rejects(
+      backup({ ...options, excludeTables: ["order", "person"], log: () => {} }),
+      /Every table is excluded/,
+    );
+  });
+
   it("drops tables that no longer exist in Postgres", async () => {
     const d1 = new DatabaseSync(":memory:");
     const { client } = fakeCloudflare(d1);
