@@ -36,6 +36,13 @@ export function sqliteType(postgresType: string) {
   }
 }
 
+// A column of the same name hides SQLite's rowid, so this picks an alias no
+// column takes, or undefined when the table has all three.
+export function rowidAlias(columns: Column[]) {
+  const names = new Set(columns.map((column) => column.name.toLowerCase()));
+  return ["rowid", "_rowid_", "oid"].find((alias) => !names.has(alias));
+}
+
 export function createTableSql(table: string, columns: Column[]) {
   const definitions = columns
     .map((column) => `${quoteIdent(column.name)} ${sqliteType(column.type)}`)

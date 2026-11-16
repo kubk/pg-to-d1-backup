@@ -2147,6 +2147,10 @@ function sqliteType(postgresType) {
       return "text";
   }
 }
+function rowidAlias(columns) {
+  const names = new Set(columns.map((column) => column.name.toLowerCase()));
+  return ["rowid", "_rowid_", "oid"].find((alias) => !names.has(alias));
+}
 function createTableSql(table, columns) {
   const definitions = columns.map((column) => `${quoteIdent(column.name)} ${sqliteType(column.type)}`).join(", ");
   return `create table ${quoteIdent(table)} (${definitions})`;
@@ -2297,7 +2301,11 @@ async function dumpPostgres(url, schema, emit, excludeTables = []) {
             rowCount += rows.length;
           }
           writer.flush();
-          summary.push({ name: table, rowCount });
+          summary.push({
+            name: table,
+            rowCount,
+            rowidAlias: rowidAlias(columns)
+          });
         }
         return { tables: summary, unknownExcluded };
       }
@@ -2367,9 +2375,10 @@ async function verifyRowCounts(cloudflare, accountId, databaseId, tables) {
   const counts = await cloudflare.query(
     accountId,
     databaseId,
-    tables.map(
-      (t) => `select ${sqlLiteral(t.name)} as name, count(*) as count from ${quoteIdent(t.name)}`
-    ).join("; ")
+    tables.map((t) => {
+      const count = t.rowidAlias ? `coalesce(max(${t.rowidAlias}), 0)` : "count(*)";
+      return `select ${sqlLiteral(t.name)} as name, ${count} as count from ${quoteIdent(t.name)}`;
+    }).join("; ")
   );
   const actual = new Map(counts.map((row) => [row.name, row.count]));
   const mismatches = tables.filter((t) => actual.get(t.name) !== t.rowCount);

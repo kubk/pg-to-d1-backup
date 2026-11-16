@@ -59,7 +59,8 @@ describe("backup", { skip: !url && "TEST_POSTGRES_URL is not set" }, () => {
         born_at timestamptz,
         "Weird ""Name""" text
       );
-      create table backup_test."order" (id serial, note varchar(10));
+      -- rowid hides SQLite's own rowid in the copy
+      create table backup_test."order" (id serial, note varchar(10), rowid text default 'x');
       create view backup_test.person_view as select name from backup_test.person;
       insert into backup_test.person
         (name, age, balance, price, ratio, active, mood, tags, meta, avatar, born_at, "Weird ""Name""")

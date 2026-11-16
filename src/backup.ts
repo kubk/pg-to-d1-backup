@@ -97,10 +97,14 @@ async function verifyRowCounts(
     accountId,
     databaseId,
     tables
-      .map(
-        (t) =>
-          `select ${sqlLiteral(t.name)} as name, count(*) as count from ${quoteIdent(t.name)}`,
-      )
+      .map((t) => {
+        // Rows only go into freshly created tables, so the largest rowid is the
+        // row count. D1 bills it as one row read, count(*) as a read per row.
+        const count = t.rowidAlias
+          ? `coalesce(max(${t.rowidAlias}), 0)`
+          : "count(*)";
+        return `select ${sqlLiteral(t.name)} as name, ${count} as count from ${quoteIdent(t.name)}`;
+      })
       // D1 caps compound selects at a few terms, so one statement per table
       .join("; "),
   );

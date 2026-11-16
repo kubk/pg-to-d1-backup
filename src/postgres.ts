@@ -3,11 +3,16 @@ import {
   createInsertWriter,
   createTableSql,
   quoteIdent,
+  rowidAlias,
   type Column,
   type Value,
 } from "./sql.ts";
 
-export type TableSummary = { name: string; rowCount: number };
+export type TableSummary = {
+  name: string;
+  rowCount: number;
+  rowidAlias: string | undefined;
+};
 
 export type DumpResult = {
   tables: TableSummary[];
@@ -92,7 +97,11 @@ export async function dumpPostgres(
             rowCount += rows.length;
           }
           writer.flush();
-          summary.push({ name: table, rowCount });
+          summary.push({
+            name: table,
+            rowCount,
+            rowidAlias: rowidAlias(columns),
+          });
         }
         return { tables: summary, unknownExcluded };
       },
