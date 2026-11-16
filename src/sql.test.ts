@@ -63,6 +63,23 @@ describe("createInsertWriter", () => {
     assert.deepEqual(stored, rows);
   });
 
+  it("splits values in a table with a rowid column", () => {
+    const columns: Column[] = [
+      { name: "rowid", type: "text" },
+      { name: "value", type: "text" },
+    ];
+    const big = "x".repeat(200_000);
+    // The column's largest value is on the row before the split one
+    const { stored } = roundTrip(columns, [
+      ["b", "small"],
+      ["a", big],
+    ]);
+    assert.deepEqual(stored, [
+      ["a", big],
+      ["b", "small"],
+    ]);
+  });
+
   it("splits rows made of many medium values", () => {
     const row = Array.from({ length: 40 }, (_, i) => `${i}`.repeat(5_000));
     const { stored } = roundTrip(textColumns(40), [row, row]);

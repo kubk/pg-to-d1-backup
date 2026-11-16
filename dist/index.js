@@ -2157,6 +2157,7 @@ function createTableSql(table, columns) {
 }
 function createInsertWriter(table, columns, emit) {
   const tableIdent = quoteIdent(table);
+  const rowid = rowidAlias(columns);
   const prefix = `insert into ${tableIdent} values `;
   const prefixBytes = Buffer.byteLength(prefix);
   let tuples2 = [];
@@ -2180,12 +2181,17 @@ function createInsertWriter(table, columns, emit) {
       deferred.push(largest);
       values2[largest] = "";
     }
+    if (!rowid) {
+      throw new Error(
+        `Row in table ${table} needs several statements, but its columns rowid, _rowid_ and oid hide the SQLite rowid`
+      );
+    }
     emit(insert());
     for (const index of deferred) {
       const column = quoteIdent(columns[index].name);
       for (const chunk of splitIntoChunks(row[index])) {
         emit(
-          `update ${tableIdent} set ${column} = ${column} || ${sqlLiteral(chunk)} where rowid = (select max(rowid) from ${tableIdent})`
+          `update ${tableIdent} set ${column} = ${column} || ${sqlLiteral(chunk)} where ${rowid} = (select max(${rowid}) from ${tableIdent})`
         );
       }
     }
